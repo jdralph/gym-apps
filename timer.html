@@ -108,26 +108,6 @@
 
   /* Portrait: the side rails sit on the same width the clock is measured
      against, so the digits have to fit the gap between them, not the screen. */
-  /* Portrait: the rails and the clock were fighting over the same strip of
-     width, so the digits ran under the buttons. Drop the controls to a bottom
-     bar and the clock gets the whole screen. */
-  @media (orientation:portrait){
-    .side{
-      top:auto; transform:none;
-      bottom:max(clamp(14px,2vh,26px), env(safe-area-inset-bottom));
-      flex-direction:row; gap:clamp(10px,2.6vw,18px);
-    }
-    .side.left{left:max(clamp(14px,3.4vw,26px), env(safe-area-inset-left))}
-    .side.right{right:max(clamp(14px,3.4vw,26px), env(safe-area-inset-right))}
-
-    .clock{padding-bottom:clamp(88px,12vh,132px)}
-
-    .digits{font-size:min(40vw,26dvh)}
-    .stage.wide .digits{font-size:min(30vw,22dvh)}
-    .colon{gap:min(8.8vw,14dvh);padding:0 min(3.2vw,5dvh)}
-    .colon i{width:min(5.9vw,9dvh);height:min(5.9vw,9dvh)}
-    .cap{font-size:clamp(13px,2.4vh,24px)}
-  }
   .mins{grid-column:1;grid-row:1;justify-self:end}
   .secs{grid-column:3;grid-row:1;justify-self:start}
 
@@ -279,6 +259,27 @@
   input[type=range]:disabled{opacity:.3;cursor:not-allowed}
 
   .keys{font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.45;margin-top:auto;line-height:1.9}
+
+  /* Portrait: the rails and the clock were fighting over the same strip of
+     width, so the digits ran under the buttons. Drop the controls to a bottom
+     bar and the clock gets the whole screen. */
+  @media (orientation:portrait){
+    .side{
+      top:auto; transform:none;
+      bottom:max(clamp(14px,2vh,26px), env(safe-area-inset-bottom));
+      flex-direction:row; gap:clamp(10px,2.6vw,18px);
+    }
+    .side.left{left:max(clamp(14px,3.4vw,26px), env(safe-area-inset-left))}
+    .side.right{right:max(clamp(14px,3.4vw,26px), env(safe-area-inset-right))}
+
+    .clock{padding-bottom:clamp(88px,12vh,132px)}
+
+    .digits{font-size:min(40vw,26dvh)}
+    .stage.wide .digits{font-size:min(30vw,22dvh)}
+    .colon{gap:min(8.8vw,14dvh);padding:0 min(3.2vw,5dvh)}
+    .colon i{width:min(5.9vw,9dvh);height:min(5.9vw,9dvh)}
+    .cap{font-size:clamp(13px,2.4vh,24px)}
+  }
 
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
