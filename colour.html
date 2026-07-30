@@ -414,15 +414,17 @@ function say(text){
 }
 
 let painted = null;   // the colour currently on screen, so a rotation can restore it
+const themeMeta = document.querySelector('meta[name="theme-color"]');
 
-/* The cue colour goes on html as well as body and the panel. Rotating repaints
-   the strips of screen that were off-screen a moment ago, and those come from
-   the root canvas — if only body is coloured the old cue survives at the edges. */
+/* The cue colour goes on html, body and the panel — and on the theme-color meta,
+   which is what paints the strips iOS reserves for the status bar and the home
+   indicator. Without that last one the screen edges keep the launch colour. */
 function applyColour(colour){
   painted = colour;
   document.documentElement.style.background = colour;
   document.body.style.background = colour;
   $('run').style.background = colour;
+  if (themeMeta) themeMeta.setAttribute('content', colour);
 }
 
 function paint(colour, label, action){
@@ -515,6 +517,7 @@ function stop(){
   painted = null;
   document.documentElement.style.background = '';
   document.body.style.background = 'var(--ink-0)';
+  if (themeMeta) themeMeta.setAttribute('content', '#0C0E11');
   $('stopHint').textContent = 'Tap anywhere to end';
 }
 

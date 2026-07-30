@@ -113,6 +113,8 @@
     .stage.wide .digits{font-size:min(16vw,26dvh)}
     .colon{gap:min(4.6vw,9dvh);padding:0 min(1.8vw,3.4dvh)}
     .colon i{width:min(3.2vw,6dvh);height:min(3.2vw,6dvh)}
+    .cap{font-size:clamp(12px,1.7vh,20px)}
+    .status{font-size:clamp(12px,1.5vh,18px)}
   }
   .mins{grid-column:1;grid-row:1;justify-self:end}
   .secs{grid-column:3;grid-row:1;justify-self:start}
@@ -388,6 +390,17 @@
   const el = id => document.getElementById(id);
   const stage=el('stage'), minsEl=el('mins'), secsEl=el('secs'),
         statusEl=el('status'), flash=el('flash');
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+
+  /* The change over flips the whole screen navy to yellow. The strips iOS keeps
+     for the status bar and home indicator follow theme-color, not the page, so
+     they have to be told separately or the edges stay navy. */
+  let themeNow = null;
+  function setTheme(hex){
+    if(hex === themeNow) return;
+    themeNow = hex;
+    if(themeMeta) themeMeta.setAttribute('content', hex);
+  }
 
   const cfg = {
     workSecs:180, intervalOn:true, intervalSecs:30,
@@ -596,6 +609,7 @@
     secsEl.textContent = String(s).padStart(2,'0');
     stage.classList.toggle('wide', m >= 10);
     stage.classList.toggle('interval', S.phase === 'interval');
+    setTheme(S.phase === 'interval' ? '#FFD400' : '#0B1B3E');
 
     statusEl.textContent =
       S.phase==='interval' ? 'Change over' :
