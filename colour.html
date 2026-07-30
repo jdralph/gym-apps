@@ -393,10 +393,31 @@ function pick(){
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+/* iOS hands out audio and speech permission only from inside a real tap, and
+   every cue here fires from a timer. Start is the one gesture we get, so both
+   subsystems are opened there — a silent utterance and a resumed context. */
+let speechReady = false;
+function unlockSpeech(){
+  if (speechReady || !('speechSynthesis' in window)) return;
+  try{
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    speechSynthesis.speak(u);
+    speechReady = true;
+  }catch(e){}
+}
+function unlockAudio(){
+  try{
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === 'suspended') audio.resume();
+  }catch(e){}
+}
+
 function beep(){
   if (!state.beep) return;
   try{
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    unlockAudio();
+    if (!audio) return;
     const o = audio.createOscillator(), g = audio.createGain();
     o.type = 'sine'; o.frequency.value = 880;
     g.gain.setValueAtTime(0.001, audio.currentTime);
@@ -408,9 +429,16 @@ function beep(){
 
 function say(text){
   if (!text || !('speechSynthesis' in window)) return;
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.rate = 1.05; speechSynthesis.speak(u);
+  try{
+    /* Safari drops any utterance queued in the same tick as a cancel(), and it
+       parks the queue after an idle stretch — hence the resume and the gap. */
+    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+    speechSynthesis.resume();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.05;
+    u.volume = 1;
+    setTimeout(() => { try{ speechSynthesis.speak(u); }catch(e){} }, 60);
+  }catch(e){}
 }
 
 let painted = null;   // the colour currently on screen, so a rotation can restore it
@@ -474,6 +502,7 @@ function schedule(){
 
 async function begin(){
   if ($('start').disabled) return;
+  unlockAudio(); unlockSpeech();   // must run before the first await, or the gesture is spent
   running = true; count = 0; last = null; startedAt = Date.now();
   $('setup').style.display = 'none';
   $('run').classList.add('on');
