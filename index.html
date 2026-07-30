@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Coach Tools</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Coach Tools">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0C0E11">
+<link rel="apple-touch-icon" href="icon-colour-180.png">
+<link rel="icon" href="icon-colour-192.png">
+<link rel="manifest" href="manifest-launcher.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+  if ('serviceWorker' in navigator) {
+    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+</script>
+<style>
+  :root{
+    --ink:#0C0E11;
+    --line:#2C333C;
+    --dim:#98A1AC;
+    --navy:#0B1B3E;
+    --yellow:#FFD400;
+    --paper:#EDEFF2;
+    --display:"Oswald","Avenir Next Condensed","Arial Narrow",system-ui,sans-serif;
+    --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html{height:100%}
+  body{
+    min-height:100%;
+    background:var(--ink);color:var(--paper);
+    font-family:var(--body);
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior:none;
+    -webkit-user-select:none;user-select:none;
+  }
+
+  .shell{display:flex;flex-direction:column;min-height:100dvh}
+
+  /* ---------- utility strip ---------- */
+  .strip{
+    flex:0 0 auto;
+    display:flex;justify-content:space-between;align-items:center;gap:16px;
+    padding:calc(14px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right))
+            14px calc(20px + env(safe-area-inset-left));
+    border-bottom:1px solid var(--line);
+    font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
+  }
+  .strip .dim{color:var(--dim);font-weight:500;letter-spacing:.12em}
+
+  /* ---------- tiles ---------- */
+  .tiles{flex:1 1 auto;display:grid;grid-template-rows:1fr 1fr}
+  @media (min-width:760px) and (min-aspect-ratio:1/1){
+    .tiles{grid-template-rows:1fr;grid-template-columns:1fr 1fr}
+  }
+
+  .tile{
+    position:relative;display:block;text-decoration:none;
+    padding:clamp(20px,4.5vmin,44px);
+    padding-bottom:calc(clamp(20px,4.5vmin,44px) + env(safe-area-inset-bottom));
+    display:flex;flex-direction:column;justify-content:space-between;
+    overflow:hidden;
+    transition:filter .15s ease;
+  }
+  .tile + .tile{border-top:1px solid var(--line)}
+  @media (min-width:760px) and (min-aspect-ratio:1/1){
+    .tile + .tile{border-top:none;border-left:1px solid var(--line)}
+  }
+  .tile:active{filter:brightness(1.12)}
+  .tile:focus-visible{outline:3px solid currentColor;outline-offset:-8px}
+
+  .t-timer{background:var(--navy);color:var(--yellow)}
+  .t-react{background:var(--ink);color:var(--paper)}
+
+  /* the preview does the explaining */
+  .preview{
+    flex:1 1 auto;display:flex;align-items:center;
+    font-family:var(--display);font-weight:700;
+    font-size:min(26vw,17vh);line-height:.9;letter-spacing:-.01em;
+    font-variant-numeric:tabular-nums;
+  }
+  .swatch{
+    width:min(26vw,17vh);height:min(26vw,17vh);
+    border-radius:5px;background:#0B3FD8;
+    transition:background-color .5s ease;
+  }
+
+  .foot{flex:0 0 auto}
+  .name{
+    font-family:var(--display);font-weight:500;
+    font-size:clamp(26px,6vmin,46px);line-height:1;
+    text-transform:uppercase;letter-spacing:.03em;
+  }
+  .what{
+    margin-top:8px;font-size:14px;line-height:1.45;
+    opacity:.66;max-width:34ch;
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important}
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <header class="strip">
+    <span>Coach Tools</span>
+    <span class="dim" id="tip">Share &rarr; Add to Home Screen</span>
+  </header>
+
+  <div class="tiles">
+    <a class="tile t-timer" href="timer.html">
+      <div class="preview"><span id="clock">3:00</span></div>
+      <div class="foot">
+        <div class="name">Gym Timer</div>
+        <p class="what">Work rounds with a change over between them. Six alarm sounds, halfway and last-ten-second cues.</p>
+      </div>
+    </a>
+
+    <a class="tile t-react" href="colour.html">
+      <div class="preview"><span class="swatch" id="swatch"></span></div>
+      <div class="foot">
+        <div class="name">React: Colour</div>
+        <p class="what">The screen changes colour at random. Give each colour a movement and react to the change.</p>
+      </div>
+    </a>
+  </div>
+</div>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Each tile shows the tool doing its one thing, so the labels don't have to.
+  if (!reduce) {
+    const clock = document.getElementById('clock');
+    let left = 180;
+    setInterval(() => {
+      left = left > 0 ? left - 1 : 180;
+      clock.textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+    }, 1000);
+
+    const swatch = document.getElementById('swatch');
+    const cues = ['#0B3FD8', '#FFFFFF', '#FFD400', '#E01B1B'];
+    let i = 0;
+    setInterval(() => { i = (i + 1) % cues.length; swatch.style.background = cues[i]; }, 2200);
+  }
+
+  // Once it's installed, the install hint is just clutter.
+  const standalone = window.navigator.standalone === true ||
+                     matchMedia('(display-mode: standalone)').matches;
+  if (standalone) document.getElementById('tip').textContent = 'Offline ready';
+})();
+</script>
+</body>
+</html>
