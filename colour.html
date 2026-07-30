@@ -168,6 +168,7 @@
   /* ---------- run ---------- */
   #run{
     position:fixed;inset:0;display:none;
+    width:100%;min-height:100dvh;
     align-items:center;justify-content:center;text-align:center;
     padding:5vmin;cursor:pointer;
   }
@@ -412,11 +413,21 @@ function say(text){
   u.rate = 1.05; speechSynthesis.speak(u);
 }
 
+let painted = null;   // the colour currently on screen, so a rotation can restore it
+
+/* The cue colour goes on html as well as body and the panel. Rotating repaints
+   the strips of screen that were off-screen a moment ago, and those come from
+   the root canvas — if only body is coloured the old cue survives at the edges. */
+function applyColour(colour){
+  painted = colour;
+  document.documentElement.style.background = colour;
+  document.body.style.background = colour;
+  $('run').style.background = colour;
+}
+
 function paint(colour, label, action){
   const run = $('run');
-  run.style.background = colour;
-  run.style.color = label === null ? 'transparent' : '';
-  document.body.style.background = colour;
+  applyColour(colour);
   const dark = COLOURS.find(c => c.hex === colour)?.dark;
   run.style.color = dark ? '#0C0E11' : '#FFFFFF';
   $('cueLabel').textContent = label || '';
@@ -424,6 +435,21 @@ function paint(colour, label, action){
   const box = $('cueLabel').parentElement;
   box.classList.remove('fade'); void box.offsetWidth; box.classList.add('fade');
 }
+
+/* Safari finishes the rotation animation before it settles the final layout, so
+   re-assert the colour on the far side of it. No label changes, no fade. */
+let repaintPending = false;
+function repaint(){
+  if (repaintPending || painted === null) return;
+  repaintPending = true;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    repaintPending = false;
+    applyColour(painted);
+  }));
+}
+addEventListener('orientationchange', () => { repaint(); setTimeout(repaint, 350); });
+addEventListener('resize', repaint);
+if (window.visualViewport) visualViewport.addEventListener('resize', repaint);
 
 function show(){
   const c = pick();
@@ -486,6 +512,8 @@ function stop(){
   if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
   $('run').classList.remove('on');
   $('setup').style.display = 'flex';
+  painted = null;
+  document.documentElement.style.background = '';
   document.body.style.background = 'var(--ink-0)';
   $('stopHint').textContent = 'Tap anywhere to end';
 }

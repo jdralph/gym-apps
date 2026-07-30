@@ -105,6 +105,15 @@
   }
   .stage.wide .digits{font-size:min(23vw,52dvh)}
   .digits.pulse{transform:scale(1.04)}
+
+  /* Portrait: the side rails sit on the same width the clock is measured
+     against, so the digits have to fit the gap between them, not the screen. */
+  @media (orientation:portrait){
+    .digits{font-size:min(21vw,30dvh)}
+    .stage.wide .digits{font-size:min(16vw,26dvh)}
+    .colon{gap:min(4.6vw,9dvh);padding:0 min(1.8vw,3.4dvh)}
+    .colon i{width:min(3.2vw,6dvh);height:min(3.2vw,6dvh)}
+  }
   .mins{grid-column:1;grid-row:1;justify-self:end}
   .secs{grid-column:3;grid-row:1;justify-self:start}
 
