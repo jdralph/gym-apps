@@ -1,21 +1,28 @@
 /* Offline cache for the coach tools.
    Bump CACHE when you edit any of the files below, or phones will keep
    serving the old copy. */
-const CACHE = 'coach-tools-v5';
+const CACHE = 'coach-tools-v6';
 
 const CORE = [
+  './',
   'index.html',
   'timer.html',
   'colour.html',
   'manifest-launcher.webmanifest',
   'manifest-timer.webmanifest',
   'manifest-colour.webmanifest',
-  'icon-timer-180.png',
-  'icon-timer-192.png',
-  'icon-timer-512.png',
-  'icon-colour-180.png',
-  'icon-colour-192.png',
-  'icon-colour-512.png'
+  'icons/icon-home-180.png',
+  'icons/icon-home-192.png',
+  'icons/icon-home-512.png',
+  'icons/icon-home-512-maskable.png',
+  'icons/icon-timer-180.png',
+  'icons/icon-timer-192.png',
+  'icons/icon-timer-512.png',
+  'icons/icon-timer-512-maskable.png',
+  'icons/icon-colour-180.png',
+  'icons/icon-colour-192.png',
+  'icons/icon-colour-512.png',
+  'icons/icon-colour-512-maskable.png'
 ];
 
 self.addEventListener('install', e => {

@@ -1,0 +1,14 @@
+{
+  "name": "React: Colour",
+  "short_name": "React",
+  "start_url": "./colour.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0C0E11",
+  "theme_color": "#0C0E11",
+  "icons": [
+    { "src": "icons/icon-colour-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-colour-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-colour-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

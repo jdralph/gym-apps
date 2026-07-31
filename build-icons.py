@@ -78,7 +78,7 @@ def compose(art, bg, size, fill):
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")
 os.makedirs(OUT, exist_ok=True)
 
-for name, fn in [("home", whistle), ("timer", stopwatch), ("react", swatches)]:
+for name, fn in [("home", whistle), ("timer", stopwatch), ("colour", swatches)]:
     art, bg = fn()
     for size in (180, 192, 512):
         compose(art.copy(), bg, size, 0.78).save(f"{OUT}/icon-{name}-{size}.png")
