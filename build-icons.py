@@ -1,5 +1,5 @@
 import os
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 M = 2048                      # master render size
 NAVY   = (0x0B, 0x1B, 0x3E)
@@ -22,7 +22,25 @@ def b(x0, y0, x1, y1):
     return [x0 * S, y0 * S, x1 * S, y1 * S]
 
 
-# ---------------------------------------------------------------- whistle
+FACE = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+
+
+# ---------------------------------------------------------------- monogram
+def monogram(text="PT"):
+    """Letters drawn one at a time so the pair can be tracked tighter than the
+    font's default spacing, which leaves an awkward gap between P and T."""
+    im, d = layer()
+    f = ImageFont.truetype(FACE, int(M * 0.42))
+    track = -M * 0.42 * 0.03
+    widths = [d.textlength(ch, font=f) for ch in text]
+    x = (M - (sum(widths) + track * (len(text) - 1))) / 2
+    for ch, w in zip(text, widths):
+        d.text((x, M / 2), ch, font=f, fill=YELLOW + (255,), anchor="lm")
+        x += w + track
+    return im, NAVY
+
+
+# ------------------------------------------------- whistle (unused, kept)
 def whistle():
     """Flat tapered mouthpiece rising into a round barrel, window at the join."""
     im, d = layer()
@@ -78,7 +96,7 @@ def compose(art, bg, size, fill):
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")
 os.makedirs(OUT, exist_ok=True)
 
-for name, fn in [("home", whistle), ("timer", stopwatch), ("colour", swatches)]:
+for name, fn in [("home", monogram), ("timer", stopwatch), ("colour", swatches)]:
     art, bg = fn()
     for size in (180, 192, 512):
         compose(art.copy(), bg, size, 0.78).save(f"{OUT}/icon-{name}-{size}.png")

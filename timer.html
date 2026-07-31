@@ -4,14 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Gym Timer</title>
-<link rel="apple-touch-icon" href="icons/icon-timer-180.png">
-<link rel="icon" href="icons/icon-timer-192.png">
-<link rel="manifest" href="manifest-timer.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Gym Timer">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0B1B3E">
+<link rel="apple-touch-icon" href="icons/icon-timer-180.png">
+<link rel="icon" href="icons/icon-timer-192.png">
+<link rel="manifest" href="manifest-timer.webmanifest">
+<script>
+  if ('serviceWorker' in navigator) {
+    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+</script>
 <style>
   :root{
     --navy:#0B1B3E;
@@ -100,6 +105,9 @@
   }
   .stage.wide .digits{font-size:min(23vw,52dvh)}
   .digits.pulse{transform:scale(1.04)}
+
+  /* Portrait: the side rails sit on the same width the clock is measured
+     against, so the digits have to fit the gap between them, not the screen. */
   .mins{grid-column:1;grid-row:1;justify-self:end}
   .secs{grid-column:3;grid-row:1;justify-self:start}
 
@@ -252,6 +260,27 @@
 
   .keys{font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.45;margin-top:auto;line-height:1.9}
 
+  /* Portrait: the rails and the clock were fighting over the same strip of
+     width, so the digits ran under the buttons. Drop the controls to a bottom
+     bar and the clock gets the whole screen. */
+  @media (orientation:portrait){
+    .side{
+      top:auto; transform:none;
+      bottom:max(clamp(14px,2vh,26px), env(safe-area-inset-bottom));
+      flex-direction:row; gap:clamp(10px,2.6vw,18px);
+    }
+    .side.left{left:max(clamp(14px,3.4vw,26px), env(safe-area-inset-left))}
+    .side.right{right:max(clamp(14px,3.4vw,26px), env(safe-area-inset-right))}
+
+    .clock{padding-bottom:clamp(88px,12vh,132px)}
+
+    .digits{font-size:min(40vw,26dvh)}
+    .stage.wide .digits{font-size:min(30vw,22dvh)}
+    .colon{gap:min(8.8vw,14dvh);padding:0 min(3.2vw,5dvh)}
+    .colon i{width:min(5.9vw,9dvh);height:min(5.9vw,9dvh)}
+    .cap{font-size:clamp(13px,2.4vh,24px)}
+  }
+
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -374,6 +403,17 @@
   const el = id => document.getElementById(id);
   const stage=el('stage'), minsEl=el('mins'), secsEl=el('secs'),
         statusEl=el('status'), flash=el('flash');
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+
+  /* The change over flips the whole screen navy to yellow. The strips iOS keeps
+     for the status bar and home indicator follow theme-color, not the page, so
+     they have to be told separately or the edges stay navy. */
+  let themeNow = null;
+  function setTheme(hex){
+    if(hex === themeNow) return;
+    themeNow = hex;
+    if(themeMeta) themeMeta.setAttribute('content', hex);
+  }
 
   const cfg = {
     workSecs:180, intervalOn:true, intervalSecs:30,
@@ -582,6 +622,7 @@
     secsEl.textContent = String(s).padStart(2,'0');
     stage.classList.toggle('wide', m >= 10);
     stage.classList.toggle('interval', S.phase === 'interval');
+    setTheme(S.phase === 'interval' ? '#FFD400' : '#0B1B3E');
 
     statusEl.textContent =
       S.phase==='interval' ? 'Change over' :

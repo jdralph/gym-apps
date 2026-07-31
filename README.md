@@ -1,4 +1,4 @@
-# Coach Tools
+# Physio Tools
 
 Three static pages. No build step, no dependencies, no server-side code.
 
@@ -16,7 +16,7 @@ Three static pages. No build step, no dependencies, no server-side code.
 
 ## After you change a file
 
-Bump `CACHE` in `sw.js` — `coach-tools-v6` to `v7`, and so on. Installed phones
+Bump `CACHE` in `sw.js` — `physio-tools-v1` to `v2`, and so on. Installed phones
 key their cache off that string; without a bump they keep serving the old copy
 and your change looks like it silently didn't work.
 
@@ -41,6 +41,10 @@ screen has the old URL baked in — they need to delete the shortcut and re-add 
 | `icon-*-192.png` | Android home screen, browser tab |
 | `icon-*-512.png` | Android splash screen, app switcher |
 | `icon-*-512-maskable.png` | Android adaptive icon (cropped to a circle or squircle) |
+
+The home icon is a `PT` monogram; `build-icons.py` still contains the earlier
+whistle drawing, so swapping back is a one-word change in the list at the
+bottom of that file.
 
 To change a colour or shape, edit the drawing functions at the top of
 `build-icons.py` and run `python3 build-icons.py`. It rewrites all 12 files from

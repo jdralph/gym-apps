@@ -1,7 +1,7 @@
 /* Offline cache for the coach tools.
    Bump CACHE when you edit any of the files below, or phones will keep
    serving the old copy. */
-const CACHE = 'coach-tools-v6';
+const CACHE = 'physio-tools-v1';
 
 const CORE = [
   './',

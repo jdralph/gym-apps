@@ -1,6 +1,6 @@
 {
-  "name": "Coach Tools",
-  "short_name": "Coach Tools",
+  "name": "Physio Tools",
+  "short_name": "Physio Tools",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

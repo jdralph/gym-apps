@@ -2,16 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>REACT: COLOUR</title>
-<link rel="apple-touch-icon" href="icons/icon-colour-180.png">
-<link rel="icon" href="icons/icon-colour-192.png">
-<link rel="manifest" href="manifest-colour.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="React">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0C0E11">
+<link rel="apple-touch-icon" href="icons/icon-colour-180.png">
+<link rel="icon" href="icons/icon-colour-192.png">
+<link rel="manifest" href="manifest-colour.webmanifest">
+<script>
+  if ('serviceWorker' in navigator) {
+    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -27,7 +32,7 @@
     --cue-white:#FFFFFF;
     --cue-yellow:#FFD400;
     --cue-red:#E01B1B;
-    --display:"Oswald","Haettenschweiler","Arial Narrow",system-ui,sans-serif;
+    --display:"Oswald","Avenir Next Condensed","Haettenschweiler","Arial Narrow",system-ui,sans-serif;
     --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -37,13 +42,21 @@
     color:var(--text);
     font-family:var(--body);
     overflow:hidden;
+    overscroll-behavior:none;
+    -webkit-user-select:none;user-select:none;
+    -webkit-touch-callout:none;
   }
+  input[type=text]{-webkit-user-select:text;user-select:text}
 
   /* ---------- setup ---------- */
   #setup{
     height:100%;
     overflow-y:auto;
-    padding:clamp(20px,4vw,44px) clamp(18px,4vw,44px) 64px;
+    padding:calc(clamp(20px,4vw,44px) + env(safe-area-inset-top))
+            calc(clamp(18px,4vw,44px) + env(safe-area-inset-right))
+            calc(64px + env(safe-area-inset-bottom))
+            calc(clamp(18px,4vw,44px) + env(safe-area-inset-left));
+    -webkit-overflow-scrolling:touch;
     display:flex;justify-content:center;
   }
   .sheet{width:100%;max-width:620px}
@@ -156,6 +169,7 @@
   /* ---------- run ---------- */
   #run{
     position:fixed;inset:0;display:none;
+    width:100%;min-height:100dvh;
     align-items:center;justify-content:center;text-align:center;
     padding:5vmin;cursor:pointer;
   }
@@ -171,14 +185,17 @@
     margin-top:2vmin;opacity:.72;
   }
   .meta{
-    position:fixed;top:0;left:0;right:0;padding:20px 26px;
+    position:fixed;top:0;left:0;right:0;
+    padding:calc(20px + env(safe-area-inset-top)) calc(26px + env(safe-area-inset-right))
+            20px calc(26px + env(safe-area-inset-left));
     display:flex;justify-content:space-between;
     font-family:var(--display);font-weight:500;
     font-size:clamp(20px,3.4vmin,38px);letter-spacing:.08em;
     text-transform:uppercase;opacity:.62;
   }
   .stop-hint{
-    position:fixed;bottom:0;left:0;right:0;padding:18px;
+    position:fixed;bottom:0;left:0;right:0;
+    padding:18px 18px calc(18px + env(safe-area-inset-bottom));
     font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;opacity:.45;
   }
   .fade{animation:fade .18s ease-out}
@@ -356,6 +373,15 @@ $('modeSeg').addEventListener('click', e => {
   el.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); flip(); } });
 });
 
+/* Installed to the home screen it is already fullscreen, and iPhone Safari has
+   no fullscreen API at all — either way the toggle is noise. */
+const standalone = window.navigator.standalone === true ||
+                   window.matchMedia('(display-mode: standalone)').matches;
+if (standalone || !document.documentElement.requestFullscreen){
+  $('optFull').style.display = 'none';
+  state.full = false;
+}
+
 function refresh(){
   const n = COLOURS.filter(c => state.on[c.key]).length;
   $('colourCount').textContent = n + ' in use';
@@ -372,10 +398,31 @@ function pick(){
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+/* iOS hands out audio and speech permission only from inside a real tap, and
+   every cue here fires from a timer. Start is the one gesture we get, so both
+   subsystems are opened there — a silent utterance and a resumed context. */
+let speechReady = false;
+function unlockSpeech(){
+  if (speechReady || !('speechSynthesis' in window)) return;
+  try{
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    speechSynthesis.speak(u);
+    speechReady = true;
+  }catch(e){}
+}
+function unlockAudio(){
+  try{
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === 'suspended') audio.resume();
+  }catch(e){}
+}
+
 function beep(){
   if (!state.beep) return;
   try{
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    unlockAudio();
+    if (!audio) return;
     const o = audio.createOscillator(), g = audio.createGain();
     o.type = 'sine'; o.frequency.value = 880;
     g.gain.setValueAtTime(0.001, audio.currentTime);
@@ -387,18 +434,39 @@ function beep(){
 
 function say(text){
   if (!text || !('speechSynthesis' in window)) return;
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.rate = 1.05; speechSynthesis.speak(u);
+  try{
+    /* Safari drops any utterance queued in the same tick as a cancel(), and it
+       parks the queue after an idle stretch — hence the resume and the gap. */
+    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+    speechSynthesis.resume();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.05;
+    u.volume = 1;
+    setTimeout(() => { try{ speechSynthesis.speak(u); }catch(e){} }, 60);
+  }catch(e){}
 }
 
-/* Shrink the big label until it fits the screen, so a typed movement can sit
-   in the same slot a one-word colour name would. */
+let painted = null;   // the colour currently on screen, so a rotation can restore it
+const themeMeta = document.querySelector('meta[name="theme-color"]');
+
+/* The cue colour goes on html, body and the panel — and on the theme-color meta,
+   which is what paints the strips iOS reserves for the status bar and the home
+   indicator. Without that last one the screen edges keep the launch colour. */
+function applyColour(colour){
+  painted = colour;
+  document.documentElement.style.background = colour;
+  document.body.style.background = colour;
+  $('run').style.background = colour;
+  if (themeMeta) themeMeta.setAttribute('content', colour);
+}
+
+/* With the colour name hidden the typed movement takes the big slot, so it has
+   to shrink until it fits rather than running off the edge. */
 function fitLabel(){
   const el = $('cueLabel');
   el.style.fontSize = '';
   if (!el.textContent) return;
-  const maxH = window.innerHeight * ($('cueAction').textContent ? 0.58 : 0.76);
+  const maxH = innerHeight * ($('cueAction').textContent ? 0.58 : 0.76);
   let size = parseFloat(getComputedStyle(el).fontSize), guard = 0;
   while (el.scrollHeight > maxH && size > 18 && guard++ < 80){
     size *= 0.93;
@@ -408,16 +476,31 @@ function fitLabel(){
 
 function paint(colour, label, action){
   const run = $('run');
-  run.style.background = colour;
-  document.body.style.background = colour;
-  const meta = COLOURS.find(c => c.hex === colour);
-  run.style.color = meta ? (meta.dark ? '#000000' : '#FFFFFF') : '#EDEFF2';
+  applyColour(colour);
+  const dark = COLOURS.find(c => c.hex === colour)?.dark;
+  run.style.color = dark ? '#000000' : '#FFFFFF';
   $('cueLabel').textContent = label || '';
   $('cueAction').textContent = action || '';
   fitLabel();
   const box = $('cueLabel').parentElement;
   box.classList.remove('fade'); void box.offsetWidth; box.classList.add('fade');
 }
+
+/* Safari finishes the rotation animation before it settles the final layout, so
+   re-assert the colour on the far side of it. No label changes, no fade. */
+let repaintPending = false;
+function repaint(){
+  if (repaintPending || painted === null) return;
+  repaintPending = true;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    repaintPending = false;
+    applyColour(painted);
+    fitLabel();
+  }));
+}
+addEventListener('orientationchange', () => { repaint(); setTimeout(repaint, 350); });
+addEventListener('resize', repaint);
+if (window.visualViewport) visualViewport.addEventListener('resize', repaint);
 
 function show(){
   const c = pick();
@@ -441,6 +524,7 @@ function schedule(){
 
 async function begin(){
   if ($('start').disabled) return;
+  unlockAudio(); unlockSpeech();   // must run before the first await, or the gesture is spent
   running = true; count = 0; last = null; startedAt = Date.now();
   $('setup').style.display = 'none';
   $('run').classList.add('on');
@@ -481,11 +565,12 @@ function stop(){
   if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
   $('run').classList.remove('on');
   $('setup').style.display = 'flex';
+  painted = null;
+  document.documentElement.style.background = '';
   document.body.style.background = 'var(--ink-0)';
+  if (themeMeta) themeMeta.setAttribute('content', '#0C0E11');
   $('stopHint').textContent = 'Tap anywhere to end';
 }
-
-window.addEventListener('resize', () => { if ($('run').classList.contains('on')) fitLabel(); });
 
 $('start').addEventListener('click', begin);
 $('run').addEventListener('click', stop);
