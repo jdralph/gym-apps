@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Gym Timer</title>
+<link rel="apple-touch-icon" href="icons/icon-timer-180.png">
+<link rel="icon" href="icons/icon-timer-192.png">
+<link rel="manifest" href="manifest-timer.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Gym Timer">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0B1B3E">
+<style>
+  :root{
+    --navy:#0B1B3E;
+    --yellow:#FFD400;
+    --bg:var(--navy);
+    --fg:var(--yellow);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+    overscroll-behavior:none;
+    background:var(--navy);
+    -webkit-user-select:none; user-select:none;
+    -webkit-touch-callout:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  button{touch-action:manipulation}
+
+  .stage{
+    position:relative;
+    height:100dvh;
+    background:var(--bg);
+    color:var(--fg);
+    transition:background-color .3s ease, color .3s ease;
+    overflow:hidden;
+  }
+  .stage.interval{--bg:var(--yellow);--fg:var(--navy)}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; justify-content:space-between; align-items:center;
+    padding:max(clamp(12px,2.2vh,26px), env(safe-area-inset-top)) clamp(16px,2.6vw,38px);
+    gap:18px; z-index:5;
+    transition:opacity .3s ease;
+  }
+  .bar-item{
+    display:flex; align-items:center; gap:10px;
+    font-size:clamp(15px,1.9vh,21px); font-weight:600; color:var(--fg);
+    background:none; border:none; cursor:pointer; padding:6px 4px;
+  }
+  .bar-item svg{width:1.35em;height:1.35em;fill:currentColor;flex:none}
+
+  .switch{
+    width:2.9em; height:1.55em; border-radius:999px;
+    background:color-mix(in srgb, var(--fg) 28%, transparent);
+    position:relative; transition:background-color .2s ease; flex:none;
+  }
+  .switch::after{
+    content:""; position:absolute; top:.19em; left:.19em;
+    width:1.17em; height:1.17em; border-radius:50%;
+    background:var(--bg); transition:transform .2s ease;
+  }
+  .bar-item[aria-pressed="true"] .switch{background:var(--fg)}
+  .bar-item[aria-pressed="true"] .switch::after{transform:translateX(1.35em)}
+
+  /* ---------- phase / round line ---------- */
+  .status{
+    position:absolute; top:clamp(58px,9vh,104px); left:0; right:0;
+    text-align:center; z-index:2;
+    font-size:clamp(13px,2vh,24px); font-weight:700;
+    letter-spacing:.42em; text-transform:uppercase;
+    opacity:.55; pointer-events:none;
+  }
+
+  /* ---------- clock ---------- */
+  .clock{
+    height:100%;
+    display:grid;
+    grid-template-columns:auto auto auto;
+    grid-template-rows:auto auto;
+    align-content:center; justify-content:center;
+    column-gap:.06em;
+  }
+  .digits{
+    font-size:min(30vw,56dvh);
+    line-height:.92;
+    font-weight:800;
+    letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums;
+    font-feature-settings:"tnum" 1;
+    transition:transform .12s ease-out;
+  }
+  .stage.wide .digits{font-size:min(23vw,52dvh)}
+  .digits.pulse{transform:scale(1.04)}
+  .mins{grid-column:1;grid-row:1;justify-self:end}
+  .secs{grid-column:3;grid-row:1;justify-self:start}
+
+  .colon{
+    grid-column:2; grid-row:1;
+    display:flex; flex-direction:column; justify-content:center;
+    gap:min(6.6vw,12dvh);
+    padding:0 min(2.4vw,4.4dvh);
+  }
+  .colon i{
+    display:block;
+    width:min(4.4vw,8dvh); height:min(4.4vw,8dvh);
+    border-radius:50%; background:currentColor;
+  }
+
+  .cap{
+    font-size:clamp(15px,3.4vh,40px);
+    font-weight:500; letter-spacing:.01em;
+    opacity:.72; margin-top:.2em;
+  }
+  .cap.mins{grid-column:1;grid-row:2;justify-self:center}
+  .cap.secs{grid-column:3;grid-row:2;justify-self:center}
+
+  /* ---------- side controls ---------- */
+  .side{
+    position:absolute; top:50%; transform:translateY(-50%);
+    display:flex; flex-direction:column; gap:clamp(10px,1.8vh,20px);
+    z-index:5; transition:opacity .3s ease;
+  }
+  .side.left{left:max(clamp(12px,1.6vw,26px), env(safe-area-inset-left))}
+  .side.right{right:max(clamp(12px,1.6vw,26px), env(safe-area-inset-right))}
+
+  .pill,.circle{
+    background:var(--fg); color:var(--bg);
+    border:none; cursor:pointer; font:inherit; font-weight:700;
+    transition:filter .15s ease, transform .1s ease, opacity .2s ease;
+  }
+  .pill{
+    border-radius:999px;
+    padding:clamp(12px,1.9vh,20px) clamp(20px,2.4vw,34px);
+    font-size:clamp(16px,2.4vh,26px);
+  }
+  .circle{
+    width:clamp(46px,6.4vh,72px); height:clamp(46px,6.4vh,72px);
+    border-radius:50%; font-size:clamp(24px,3.4vh,38px); line-height:1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .pill:hover,.circle:hover{filter:brightness(1.1)}
+  .pill:active,.circle:active{transform:scale(.96)}
+  .circle:disabled{opacity:.28;cursor:not-allowed}
+  button:focus-visible,input:focus-visible{outline:3px solid var(--fg);outline-offset:4px}
+  .pill:focus-visible,.circle:focus-visible{outline-color:var(--fg)}
+
+  /* hide chrome while running */
+  .stage.ui-hidden .topbar,
+  .stage.ui-hidden .side{opacity:0;pointer-events:none}
+  .stage.ui-hidden{cursor:none}
+
+  /* ---------- flash ---------- */
+  .flash{position:absolute;inset:0;background:var(--fg);opacity:0;pointer-events:none;z-index:3}
+  .flash.go{animation:blink .8s steps(1,end) 3}
+  @keyframes blink{0%,45%{opacity:.92}46%,100%{opacity:0}}
+
+  /* ---------- round announcement ---------- */
+  .roundcard{
+    position:absolute; inset:0; z-index:7;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--bg);
+    opacity:0; pointer-events:none;
+    transition:opacity .2s ease;
+  }
+  .roundcard.show{opacity:1}
+  .roundcard span{
+    font-size:min(30vw,56dvh);
+    line-height:.92; font-weight:800; letter-spacing:-.01em;
+    color:var(--fg); white-space:nowrap;
+    transform-origin:center center;
+    transition:transform .25s ease-out;
+  }
+
+  /* ---------- settings drawer ---------- */
+  .scrim{
+    position:absolute;inset:0;background:#000;opacity:0;
+    pointer-events:none;transition:opacity .25s ease;z-index:8;
+  }
+  .stage.settings-open .scrim{opacity:.55;pointer-events:auto}
+
+  .drawer{
+    position:absolute;top:0;left:0;bottom:0;z-index:9;
+    width:min(430px,88vw);
+    background:var(--navy);color:var(--yellow);
+    border-right:3px solid var(--yellow);
+    padding:clamp(20px,3vh,32px);
+    display:flex;flex-direction:column;gap:clamp(18px,2.6vh,28px);
+    overflow-y:auto;
+    transform:translateX(-102%);
+    transition:transform .28s cubic-bezier(.4,0,.2,1);
+  }
+  .stage.settings-open .drawer{transform:none}
+
+  .drawer h2{
+    font-size:15px;font-weight:800;letter-spacing:.3em;text-transform:uppercase;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .close{background:none;border:none;color:var(--yellow);font-size:26px;cursor:pointer;line-height:1}
+
+  .field{display:flex;flex-direction:column;gap:10px}
+  .field>.label{font-size:12px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;opacity:.6}
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+  .chip{
+    font:inherit;font-size:15px;font-weight:700;
+    color:var(--yellow);background:transparent;
+    border:2px solid color-mix(in srgb, var(--yellow) 45%, transparent);
+    border-radius:6px;padding:9px 14px;cursor:pointer;white-space:nowrap;
+    transition:background-color .15s,border-color .15s,color .15s;
+  }
+  .chip:hover{border-color:var(--yellow)}
+  .chip.on{background:var(--yellow);color:var(--navy);border-color:var(--yellow)}
+  .chip.mini{padding:7px 11px;font-size:14px}
+
+  .options{display:grid;gap:8px}
+  .opt{
+    font:inherit;font-size:15px;font-weight:700;text-align:left;
+    color:var(--yellow);background:transparent;
+    border:2px solid color-mix(in srgb, var(--yellow) 30%, transparent);
+    border-radius:6px;padding:11px 14px;cursor:pointer;
+    display:flex;align-items:baseline;gap:8px;
+    transition:background-color .15s,border-color .15s,color .15s;
+  }
+  .opt small{font-size:13px;font-weight:500;opacity:.6}
+  .opt:hover{border-color:var(--yellow)}
+  .opt.on{background:var(--yellow);color:var(--navy);border-color:var(--yellow)}
+  .opt.on small{opacity:.75}
+  .num{
+    font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;
+    min-width:70px;text-align:center;
+  }
+
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;flex:1;min-width:130px;height:4px;
+    background:color-mix(in srgb, var(--yellow) 35%, transparent);
+    border-radius:2px;outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--yellow);cursor:pointer;
+  }
+  input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-radius:50%;background:var(--yellow)}
+  input[type=range]:disabled{opacity:.3;cursor:not-allowed}
+
+  .keys{font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.45;margin-top:auto;line-height:1.9}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <div class="flash" id="flash"></div>
+
+  <div class="topbar" id="topbar">
+    <button class="bar-item" id="settingsBtn">
+      <svg viewBox="0 0 24 24"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1L15 3.4h-4l-.3 2.6a7.6 7.6 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1c.5.4 1.1.8 1.7 1l.3 2.6h4l.3-2.6c.6-.2 1.2-.6 1.7-1l2.4 1 2-3.4-2-1.6ZM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/></svg>
+      Settings
+    </button>
+    <div style="display:flex;align-items:center;gap:clamp(14px,2.4vw,34px)">
+      <button class="bar-item" id="repeatBtn" aria-pressed="true">Repeat <span class="switch"></span></button>
+      <button class="bar-item" id="fsBtn">Fullscreen
+        <svg viewBox="0 0 24 24"><path d="M3 3h8v2H5v6H3V3Zm10 0h8v8h-2V5h-6V3ZM3 13h2v6h6v2H3v-8Zm16 0h2v8h-8v-2h6v-6Z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="status" id="status">Ready</div>
+
+  <main class="clock">
+    <div class="digits mins" id="mins">3</div>
+    <div class="colon"><i></i><i></i></div>
+    <div class="digits secs" id="secs">00</div>
+    <div class="cap mins">Minutes</div>
+    <div class="cap secs">Seconds</div>
+  </main>
+
+  <div class="side left">
+    <button class="pill" id="startBtn">Start</button>
+    <button class="pill" id="resetBtn">Reset</button>
+  </div>
+
+  <div class="side right">
+    <button class="circle" id="plusBtn" aria-label="Add time">+</button>
+    <button class="circle" id="minusBtn" aria-label="Remove time">&minus;</button>
+  </div>
+
+  <div class="roundcard" id="roundCard"><span id="roundCardText">Round 1</span></div>
+
+  <div class="scrim" id="scrim"></div>
+
+  <aside class="drawer" id="drawer">
+    <h2>Settings <button class="close" id="closeBtn" aria-label="Close settings">&times;</button></h2>
+
+    <div class="field">
+      <span class="label">Work time</span>
+      <div class="row" id="presets">
+        <button class="chip mini" data-secs="30">0:30</button>
+        <button class="chip mini" data-secs="45">0:45</button>
+        <button class="chip mini" data-secs="60">1:00</button>
+        <button class="chip mini" data-secs="120">2:00</button>
+        <button class="chip mini" data-secs="180">3:00</button>
+        <button class="chip mini" data-secs="300">5:00</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="label">Change over timer</span>
+      <div class="row">
+        <button class="chip on" id="intervalToggle" aria-pressed="true">On</button>
+        <input type="range" id="intervalRange" min="10" max="90" step="5" value="30" aria-label="Change over length">
+        <span class="num" id="intervalValue">0:30</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="label">Stop after</span>
+      <div class="row">
+        <button class="chip mini" id="roundsMinus" aria-label="Fewer rounds">&minus;</button>
+        <span class="num" id="roundsValue">&infin;</span>
+        <button class="chip mini" id="roundsPlus" aria-label="More rounds">+</button>
+        <span style="font-size:13px;opacity:.55">rounds</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="label">Sound</span>
+      <div class="row">
+        <button class="chip on" id="sEnd" aria-pressed="true">End alert</button>
+        <button class="chip on" id="sHalf" aria-pressed="true">Halfway</button>
+        <button class="chip on" id="sTick" aria-pressed="true">Last 10s</button>
+      </div>
+      <div class="row">
+        <span style="font-size:13px;opacity:.6;min-width:56px">Volume</span>
+        <input type="range" id="volume" min="0" max="100" step="5" value="90" aria-label="Volume">
+      </div>
+      <div class="options" id="alarmPicker">
+        <button class="opt on" data-alarm="bell">Bell <small>wind-up clock</small></button>
+        <button class="opt" data-alarm="twotone">Two-tone <small>rising siren</small></button>
+        <button class="opt" data-alarm="pips">Digital <small>watch beeps</small></button>
+        <button class="opt" data-alarm="klaxon">Klaxon <small>industrial horn</small></button>
+        <button class="opt" data-alarm="chime">Chime <small>rising 3-note swell</small></button>
+        <button class="opt" data-alarm="boxing">Boxing bell <small>ding ding</small></button>
+      </div>
+      <div class="row">
+        <span style="font-size:13px;opacity:.6;min-width:56px">Length</span>
+        <input type="range" id="alarmRange" min="1" max="6" step="0.5" value="2" aria-label="Alarm length">
+        <span class="num" id="alarmValue">2s</span>
+      </div>
+      <div class="row">
+        <button class="chip mini" id="testAlarm">Test alarm</button>
+        <button class="chip mini" id="stopAlarm">Stop</button>
+      </div>
+    </div>
+
+    <div class="keys">
+      Space &mdash; start / pause<br>
+      R &mdash; reset &nbsp;&middot;&nbsp; F &mdash; fullscreen &nbsp;&middot;&nbsp; S &mdash; settings
+    </div>
+  </aside>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const el = id => document.getElementById(id);
+  const stage=el('stage'), minsEl=el('mins'), secsEl=el('secs'),
+        statusEl=el('status'), flash=el('flash');
+
+  const cfg = {
+    workSecs:180, intervalOn:true, intervalSecs:30,
+    repeat:true, rounds:Infinity,
+    sounds:{end:true, half:true, tick:true}, volume:0.9, alarmSecs:2, alarmSound:'bell'
+  };
+
+  const S = {
+    phase:'idle', running:false,
+    totalMs:180000, remainingMs:180000, endAt:0,
+    round:1, halfPlayed:false, lastTick:null
+  };
+
+  /* ---------- audio ---------- */
+  let ctx=null, master=null, comp=null, out=null;
+  let live = [];   // scheduled oscillators, so an alarm can be cut short
+
+  function audioCtx(){
+    if(!ctx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return null;
+      ctx = new AC();
+
+      master = ctx.createGain();
+      master.gain.value = cfg.volume * 1.8;   // headroom above 1 for real volume
+
+      comp = ctx.createDynamicsCompressor();  // squashes peaks so it can run hot
+      comp.threshold.value = -18;
+      comp.knee.value = 6;
+      comp.ratio.value = 12;
+      comp.attack.value = 0.003;
+      comp.release.value = 0.12;
+
+      out = ctx.createGain();
+      out.gain.value = 1.0;
+
+      master.connect(comp); comp.connect(out); out.connect(ctx.destination);
+    }
+    if(ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  function setVolume(){
+    if(master) master.gain.value = cfg.volume * 1.8;
+  }
+
+  function tone({f=880, glideTo=null, dur=0.2, type='square', gain=0.6, delay=0,
+                 attack=0.008, release=null}){
+    const c = audioCtx(); if(!c) return;
+    const t0 = c.currentTime + delay;
+    const osc = c.createOscillator(), g = c.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(f, t0);
+    if(glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, t0+dur);
+    const rel = release !== null ? release : Math.min(0.12, dur*0.5);
+    const holdEnd = Math.max(t0+attack+0.002, t0+dur-rel);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0+attack);
+    g.gain.setValueAtTime(gain, holdEnd);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    osc.connect(g); g.connect(master);
+    osc.start(t0); osc.stop(t0+dur+0.06);
+    live.push(osc);
+    osc.onended = () => { live = live.filter(n => n !== osc); };
+  }
+
+  function stopSound(){
+    live.forEach(n => { try{ n.stop(); }catch(e){} });
+    live = [];
+  }
+
+  // Struck metal bell: inharmonic partials, instant attack, long ring-out.
+  function bellStrike(delay, gain){
+    const f0 = 640;
+    [[1.00,1.00,1.70],[2.00,0.55,1.30],[2.76,0.40,1.00],
+     [4.07,0.26,0.75],[5.43,0.17,0.58],[8.21,0.11,0.42]]
+      .forEach(([mult, g, d]) => {
+        tone({f:f0*mult, dur:d, type:'sine', gain:gain*g, delay, attack:0.002, release:d});
+      });
+    tone({f:f0*6, dur:0.045, type:'square', gain:gain*0.30, delay, attack:0.001, release:0.045});
+  }
+
+  const alarms = {
+
+    // Wind-up clock: two pitches alternating fast (the clapper), chopped into
+    // ring bursts. One oscillator per layer, frequency stepped in place.
+    bell(dur){
+      const c = audioCtx(); if(!c) return;
+      const t0 = c.currentTime + 0.02;
+      const trill = 0.024, ring = 0.30, gap = 0.05;
+      const layer = (type, mult, gain) => {
+        const osc = c.createOscillator(), g = c.createGain();
+        osc.type = type;
+        for(let i = 0, t = 0; t < dur; t += trill, i++){
+          osc.frequency.setValueAtTime((i % 2 ? 1245 : 933) * mult, t0 + t);
+        }
+        g.gain.setValueAtTime(0.0001, t0);
+        for(let t = 0; t < dur - 0.02; t += ring + gap){
+          const on = Math.min(ring, dur - t);
+          g.gain.setValueAtTime(0.0001, t0 + t);
+          g.gain.exponentialRampToValueAtTime(gain, t0 + t + 0.005);
+          g.gain.setValueAtTime(gain, t0 + t + on - 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + t + on);
+        }
+        osc.connect(g); g.connect(master);
+        osc.start(t0); osc.stop(t0 + dur + 0.05);
+        live.push(osc);
+        osc.onended = () => { live = live.filter(n => n !== osc); };
+      };
+      layer('square',   1,    1.00);
+      layer('square',   2.01, 0.30);
+      layer('triangle', 3.02, 0.16);
+      layer('sawtooth', 0.5,  0.34);
+    },
+
+    // Emergency two-tone: sustained notes swapping back and forth.
+    twotone(dur){
+      const seg = 0.26; let t = 0, hi = false;
+      while(t < dur - 0.01){
+        const f = hi ? 988 : 740, d = Math.min(seg, dur - t);
+        tone({f,           dur:d, type:'square',   gain:0.95, delay:t, attack:0.012, release:0.022});
+        tone({f:f*1.005,   dur:d, type:'sawtooth', gain:0.45, delay:t, attack:0.014, release:0.022});
+        tone({f:f/2,       dur:d, type:'triangle', gain:0.32, delay:t, attack:0.012, release:0.022});
+        hi = !hi; t += d;
+      }
+    },
+
+    // Digital watch: sharp high pips in groups of four.
+    pips(dur){
+      const on = 0.075, off = 0.075, gap = 0.26;
+      let t = 0;
+      while(t < dur - 0.01){
+        for(let i = 0; i < 4 && t < dur - 0.01; i++){
+          tone({f:2637, dur:on, type:'square', gain:0.95, delay:t, attack:0.004, release:0.010});
+          tone({f:1319, dur:on, type:'square', gain:0.42, delay:t, attack:0.004, release:0.010});
+          tone({f:5274, dur:on, type:'sine',   gain:0.18, delay:t, attack:0.004, release:0.010});
+          t += on + off;
+        }
+        t += gap;
+      }
+    },
+
+    // Industrial horn: low sawtooth blasts sweeping upward.
+    klaxon(dur){
+      const blast = 0.40, gap = 0.10;
+      let t = 0;
+      while(t < dur - 0.01){
+        const d = Math.min(blast, dur - t);
+        tone({f:150, glideTo:420, dur:d, type:'sawtooth', gain:1.00, delay:t, attack:0.020, release:0.060});
+        tone({f:300, glideTo:840, dur:d, type:'square',   gain:0.40, delay:t, attack:0.030, release:0.060});
+        tone({f:75,  glideTo:210, dur:d, type:'triangle', gain:0.48, delay:t, attack:0.020, release:0.060});
+        t += d + gap;
+      }
+    },
+
+    // Struck ring bell, repeated to fill the chosen length.
+    boxing(dur){
+      audioCtx();
+      for(let t = 0, i = 0; t < Math.max(0.4, dur - 0.2); t += 0.34, i++){
+        bellStrike(t, i === 0 ? 1.00 : 0.92);
+      }
+    },
+
+    // Three long notes climbing in pitch and volume, phrase repeating.
+    chime(dur){
+      const notes = [{f:311.1,g:0.42},{f:415.3,g:0.68},{f:622.3,g:1.00}];
+      const gap = 0.05, phraseGap = 0.20;
+      const phrase = notes.length * gap + phraseGap;
+      const len = Math.max(0.16, (dur - phrase) / notes.length);
+      let t = 0;
+      while(t < dur - 0.05){
+        notes.forEach(n => {
+          const d = Math.min(n === notes[2] ? len*1.3 : len, Math.max(0.1, dur - t));
+          tone({f:n.f,       dur:d, type:'sawtooth', gain:n.g*0.78, delay:t, attack:0.035, release:0.09});
+          tone({f:n.f*1.006, dur:d, type:'sawtooth', gain:n.g*0.55, delay:t, attack:0.045, release:0.09});
+          tone({f:n.f*2,     dur:d, type:'square',   gain:n.g*0.26, delay:t, attack:0.055, release:0.09});
+          tone({f:n.f/2,     dur:d, type:'triangle', gain:n.g*0.40, delay:t, attack:0.030, release:0.09});
+          t += d + gap;
+        });
+        t += phraseGap;
+      }
+    }
+  };
+
+  const cue = {
+    tick(){ tone({f:1500,dur:0.045,type:'square',gain:0.30}); },
+
+    half(){ tone({f:784, dur:0.18,type:'triangle',gain:0.60});
+            tone({f:1568,dur:0.18,type:'sine',    gain:0.25});
+            tone({f:1175,dur:0.22,type:'triangle',gain:0.60,delay:0.19});
+            tone({f:2349,dur:0.22,type:'sine',    gain:0.25,delay:0.19}); },
+
+    end(){ (alarms[cfg.alarmSound] || alarms.bell)(cfg.alarmSecs); },
+
+    // Boxing bell: ding-ding.
+    go(){ bellStrike(0, 1.00); bellStrike(0.34, 0.92); }
+  };
+
+  /* ---------- render ---------- */
+  const fmtShort = s => Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+
+  function render(){
+    const total = Math.max(0, Math.ceil(S.remainingMs/1000));
+    const m = Math.floor(total/60), s = total%60;
+    minsEl.textContent = m;
+    secsEl.textContent = String(s).padStart(2,'0');
+    stage.classList.toggle('wide', m >= 10);
+    stage.classList.toggle('interval', S.phase === 'interval');
+
+    statusEl.textContent =
+      S.phase==='interval' ? 'Change over' :
+      S.phase==='work'     ? (S.running ? (cfg.repeat ? 'Round '+S.round : 'Work') : 'Paused') :
+      S.phase==='done'     ? 'Finished' : 'Ready';
+
+    el('startBtn').textContent = S.running ? 'Pause' : (S.phase==='idle'||S.phase==='done' ? 'Start' : 'Resume');
+
+    el('intervalValue').textContent = fmtShort(cfg.intervalSecs);
+    el('roundsValue').innerHTML = cfg.rounds===Infinity ? '&infin;' : cfg.rounds;
+    el('alarmValue').textContent = cfg.alarmSecs + 's';
+  }
+  function pulse(){ minsEl.classList.add('pulse'); secsEl.classList.add('pulse');
+    setTimeout(()=>{minsEl.classList.remove('pulse');secsEl.classList.remove('pulse');},120); }
+  function blink(){ flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go'); }
+
+  // Full-screen "ROUND n" callout at the top of every work round, sized to the
+  // timer font and shrunk only if the text would run off the edge.
+  const card = el('roundCard'), cardText = el('roundCardText');
+  let cardTimer = null;
+  function announceRound(n){
+    cardText.style.transform = 'scale(1)';
+    cardText.textContent = 'ROUND ' + n;
+    card.classList.add('show');
+    requestAnimationFrame(() => {
+      const room = window.innerWidth * 0.9, w = cardText.scrollWidth;
+      if(w > room) cardText.style.transform = 'scale(' + (room / w) + ')';
+    });
+    clearTimeout(cardTimer);
+    cardTimer = setTimeout(() => card.classList.remove('show'), 3000);
+  }
+  function hideRound(){ clearTimeout(cardTimer); card.classList.remove('show'); }
+
+  /* ---------- engine ---------- */
+  function beginPhase(phase, secs){
+    S.phase = phase;
+    S.totalMs = secs*1000;
+    S.remainingMs = S.totalMs;
+    S.halfPlayed = false;
+    S.lastTick = null;
+    S.endAt = performance.now() + S.totalMs;
+    S.running = true;
+    if(phase === 'work') announceRound(S.round);
+  }
+  function start(){
+    audioCtx(); setVolume(); stopSound();
+    if(S.phase==='idle' || S.phase==='done'){ S.round = 1; cue.go(); beginPhase('work', cfg.workSecs); }
+    else { S.endAt = performance.now() + S.remainingMs; S.running = true; }
+    keepAwake(); showUI(); render();
+  }
+  function pause(){
+    S.running = false;
+    S.remainingMs = Math.max(0, S.endAt - performance.now());
+    releaseWake(); render();
+  }
+  function reset(){
+    stopSound(); hideRound();
+    S.running=false; S.phase='idle'; S.round=1;
+    S.totalMs = cfg.workSecs*1000; S.remainingMs = S.totalMs;
+    S.halfPlayed=false; S.lastTick=null;
+    stage.classList.remove('ui-hidden');
+    releaseWake(); render();
+  }
+  function complete(){
+    if(S.phase==='work'){
+      if(cfg.sounds.end) cue.end();
+      blink();
+      const more = cfg.repeat && (cfg.rounds===Infinity || S.round < cfg.rounds);
+      if(more && cfg.intervalOn){ beginPhase('interval', cfg.intervalSecs); }
+      else if(more){ S.round++; beginPhase('work', cfg.workSecs); }
+      else { S.running=false; S.phase='done'; S.remainingMs=0;
+             stage.classList.remove('ui-hidden'); releaseWake(); }
+    } else if(S.phase==='interval'){
+      cue.go(); S.round++; beginPhase('work', cfg.workSecs);
+    }
+    render();
+  }
+  function cues(){
+    const secs = Math.ceil(S.remainingMs/1000);
+    if(S.phase==='work' && cfg.sounds.half && !S.halfPlayed){
+      const halfMs = S.totalMs/2;
+      if(S.remainingMs <= halfMs){ S.halfPlayed = true; if(halfMs > 10500) cue.half(); }
+    }
+    const win = S.phase==='interval' ? Math.min(5, cfg.intervalSecs) : 10;
+    if(cfg.sounds.tick && secs<=win && secs>=1 && secs!==S.lastTick){
+      S.lastTick = secs; cue.tick(); pulse();
+    }
+  }
+  (function frame(){
+    if(S.running){
+      S.remainingMs = Math.max(0, S.endAt - performance.now());
+      cues();
+      render();
+      if(S.remainingMs <= 0) complete();
+    }
+    requestAnimationFrame(frame);
+  })();
+
+  /* ---------- wake lock ---------- */
+  let wake=null;
+  async function keepAwake(){ try{ if('wakeLock' in navigator && !wake) wake = await navigator.wakeLock.request('screen'); }catch(e){} }
+  function releaseWake(){ try{ wake && wake.release(); }catch(e){} wake=null; }
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState==='visible' && S.running) keepAwake();
+  });
+
+  /* ---------- controls ---------- */
+  function setWork(secs){
+    cfg.workSecs = Math.max(5, Math.min(5940, secs));
+    if(S.phase==='idle' || S.phase==='done'){
+      S.totalMs = cfg.workSecs*1000; S.remainingMs = S.totalMs;
+    }
+    render();
+  }
+  const stepOf = s => s >= 60 ? 15 : 5;
+
+  // Nudge the round that is on the clock right now, without changing the
+  // work time the next round will use.
+  function nudge(deltaMs){
+    const floor = 1000;
+    if(S.running){
+      const left = Math.max(0, S.endAt - performance.now());
+      const next = Math.max(floor, left + deltaMs);
+      S.totalMs = Math.max(next, S.totalMs + (next - left));
+      S.endAt = performance.now() + next;
+      S.remainingMs = next;
+    } else {
+      const next = Math.max(floor, S.remainingMs + deltaMs);
+      S.totalMs = Math.max(next, S.totalMs + (next - S.remainingMs));
+      S.remainingMs = next;
+    }
+    if(S.lastTick !== null && Math.ceil(S.remainingMs/1000) > S.lastTick) S.lastTick = null;
+    render();
+  }
+
+  const onClock = () => S.phase === 'work' || S.phase === 'interval';
+  el('plusBtn').onclick  = () => onClock() ? nudge( 10000) : setWork(cfg.workSecs + stepOf(cfg.workSecs));
+  el('minusBtn').onclick = () => onClock() ? nudge(-10000) : setWork(cfg.workSecs - stepOf(cfg.workSecs - 1));
+  el('presets').addEventListener('click', e => {
+    const b = e.target.closest('button[data-secs]');
+    if(b) setWork(+b.dataset.secs);
+  });
+
+  el('startBtn').onclick = () => S.running ? pause() : start();
+  el('resetBtn').onclick = reset;
+  const canFullscreen = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+  const standalone = window.navigator.standalone === true ||
+                     window.matchMedia('(display-mode: standalone)').matches;
+  if(!canFullscreen || standalone) el('fsBtn').style.display = 'none';
+  el('fsBtn').onclick = () => {
+    if(document.fullscreenElement) document.exitFullscreen();
+    else if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+    else document.documentElement.webkitRequestFullscreen?.();
+  };
+
+  const rep = el('repeatBtn');
+  rep.onclick = () => {
+    cfg.repeat = !cfg.repeat;
+    rep.setAttribute('aria-pressed', String(cfg.repeat));
+    render();
+  };
+
+  const it = el('intervalToggle');
+  it.onclick = () => {
+    cfg.intervalOn = !cfg.intervalOn;
+    it.classList.toggle('on', cfg.intervalOn);
+    it.setAttribute('aria-pressed', String(cfg.intervalOn));
+    it.textContent = cfg.intervalOn ? 'On' : 'Off';
+    el('intervalRange').disabled = !cfg.intervalOn;
+  };
+  el('intervalRange').oninput = e => { cfg.intervalSecs = +e.target.value; render(); };
+
+  el('roundsMinus').onclick = () => {
+    cfg.rounds = cfg.rounds===Infinity ? 20 : (cfg.rounds<=2 ? Infinity : cfg.rounds-1);
+    render();
+  };
+  el('roundsPlus').onclick = () => {
+    cfg.rounds = cfg.rounds===Infinity ? 2 : (cfg.rounds>=30 ? Infinity : cfg.rounds+1);
+    render();
+  };
+
+  [['sEnd','end'],['sHalf','half'],['sTick','tick']].forEach(([id,key]) => {
+    el(id).onclick = () => {
+      cfg.sounds[key] = !cfg.sounds[key];
+      el(id).classList.toggle('on', cfg.sounds[key]);
+      el(id).setAttribute('aria-pressed', String(cfg.sounds[key]));
+    };
+  });
+  el('volume').oninput = e => {
+    cfg.volume = +e.target.value/100;
+    audioCtx(); setVolume();
+    cue.tick();
+  };
+  el('alarmRange').oninput = e => {
+    cfg.alarmSecs = +e.target.value;
+    el('alarmValue').textContent = cfg.alarmSecs + 's';
+  };
+  const playAlarm = () => { audioCtx(); setVolume(); stopSound(); cue.end(); };
+
+  el('alarmPicker').addEventListener('click', e => {
+    const b = e.target.closest('button[data-alarm]');
+    if(!b) return;
+    cfg.alarmSound = b.dataset.alarm;
+    [...el('alarmPicker').children].forEach(o => o.classList.toggle('on', o === b));
+    playAlarm();                       // preview whatever was just picked
+  });
+
+  el('testAlarm').onclick = playAlarm;
+  el('stopAlarm').onclick = stopSound;
+
+  /* ---------- settings drawer ---------- */
+  const openS  = () => { stage.classList.add('settings-open'); showUI(); };
+  const closeS = () => stage.classList.remove('settings-open');
+  el('settingsBtn').onclick = openS;
+  el('closeBtn').onclick = closeS;
+  el('scrim').onclick = closeS;
+
+  /* ---------- keyboard ---------- */
+  document.addEventListener('keydown', e => {
+    if(e.target.matches('input')) return;
+    const k = e.key.toLowerCase();
+    if(k===' '){ e.preventDefault(); S.running ? pause() : start(); }
+    else if(k==='r') reset();
+    else if(k==='f') el('fsBtn').click();
+    else if(k==='s') stage.classList.contains('settings-open') ? closeS() : openS();
+    else if(e.key==='ArrowUp'){ e.preventDefault(); el('plusBtn').click(); }
+    else if(e.key==='ArrowDown'){ e.preventDefault(); el('minusBtn').click(); }
+    else if(k==='escape') closeS();
+    showUI();
+  });
+
+  /* ---------- auto-hide chrome ---------- */
+  let hideAt = 0;
+  function showUI(){ stage.classList.remove('ui-hidden'); hideAt = performance.now()+4000; }
+  ['mousemove','touchstart','click'].forEach(ev => document.addEventListener(ev, showUI, {passive:true}));
+  setInterval(() => {
+    if(S.running && !stage.classList.contains('settings-open') && performance.now() > hideAt){
+      stage.classList.add('ui-hidden');
+    }
+  }, 500);
+
+  render();
+})();
+</script>
+</body>
+</html>

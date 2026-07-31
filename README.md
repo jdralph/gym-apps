@@ -1,57 +1,56 @@
-# Coach Tools — iOS setup
+# Coach tools
 
-Two self-contained web apps, packaged so they install to an iPhone or iPad home
-screen and run with no signal.
+Two standalone class tools. Each file runs on its own — no build step, no
+dependencies, no server-side code.
 
-- `index.html` — launcher with a tile for each tool
-- `timer.html` — Gym Timer
-- `colour.html` — React: Colour
-- `sw.js` — offline cache
-- `manifest-*.webmanifest`, `icon-*.png` — home screen icon and app metadata
+```
+├─ gym-timer-ios.html          interval / round timer
+├─ react-colour-trainer.html   reaction colour cues
+├─ manifest-timer.json
+├─ manifest-react.json
+├─ manifest-home.json          for your own index.html — see below
+├─ build-icons.py              regenerates everything in icons/
+└─ icons/                      12 PNGs, 3 apps x 4 sizes
+```
 
-## 1. Put the folder on a URL
+## Your home page
 
-iOS will only install a web app from `https://`. Any static host works; upload
-the whole folder, keeping the filenames as they are.
+There is deliberately **no index.html here**, so uploading this won't overwrite
+the one you already have. To use the whistle icon, paste this into its `<head>`:
 
-**GitHub Pages** (free, permanent)
-1. Create a repository, upload every file in this folder to the root.
-2. Settings → Pages → Source: *Deploy from a branch*, branch `main`, folder `/`.
-3. Wait a minute, then open `https://<username>.github.io/<repo>/`.
+```html
+<link rel="apple-touch-icon" href="icons/icon-home-180.png">
+<link rel="icon" href="icons/icon-home-192.png">
+<link rel="manifest" href="manifest-home.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Coach Tools">
+<meta name="theme-color" content="#0B1B3E">
+```
 
-**Cloudflare Pages or Netlify** — create a project, drag the folder into the
-deploy box, use the URL it gives you.
+Then edit `manifest-home.json` — change `name` and `short_name` to whatever
+should appear under the icon. If you don't want a home page icon at all, delete
+`manifest-home.json` and the four `icon-home-*.png` files.
 
-**Local network only** — from the folder on a Mac:
-`python3 -m http.server 8000`, then open `http://<mac-ip>:8000` on the phone.
-Fine for testing, but the service worker and installed-app mode need `https://`,
-so the icon won't behave properly.
+## Icons
 
-## 2. Install on the phone
+| File | Used by |
+|---|---|
+| `icon-*-180.png` | iPhone / iPad home screen |
+| `icon-*-192.png` | Android home screen, browser tab |
+| `icon-*-512.png` | Android splash screen, app switcher |
+| `icon-*-512-maskable.png` | Android adaptive icon (cropped to a circle or squircle) |
 
-Open the URL **in Safari** (Chrome and Firefox on iOS can't install web apps).
-
-- Tap **Share** → **Add to Home Screen** → **Add**.
-- Do it from `index.html` for a launcher icon, or open `timer.html` or
-  `colour.html` first to get a separate icon for just that tool. Installing all
-  three is fine — each gets its own icon and its own colour scheme.
-
-Launched from the home screen there's no address bar, no tab bar, and no
-accidental swipe-back mid-round.
-
-## 3. Offline
-
-The first launch on `https://` caches everything. After that both tools work in
-airplane mode. React: Colour pulls two web fonts from Google on first load and
-caches them too; if that first load happens offline it falls back to the
-system condensed face and still works.
+To change a colour or shape, edit the drawing functions near the top of
+`build-icons.py` and run `python3 build-icons.py`. It rewrites every size into
+`icons/` from a single 2048px master, so all four stay in sync. Needs Pillow
+(`pip install Pillow`); nothing else.
 
 ## Notes
 
-- **Sound** — iOS won't play audio until you tap something, so the first tap on
-  Start unlocks it. The timer's alarms will be silent if the phone's ringer
-  switch is on mute; volume up and ringer on.
-- **Screen sleep** — both request a screen wake lock (iOS 16.4+), so the display
-  stays on while a session runs.
-- **Editing later** — if you change any file, bump `CACHE = 'coach-tools-v1'` in
-  `sw.js` to `v2`. Otherwise installed phones keep serving the old cached copy.
+- Home screen icons are captured at "Add to Home Screen". Changing the files
+  later won't update an existing shortcut — delete it and re-add.
+- Manifests only load over http(s). Opening the HTML off the filesystem works
+  for the pages themselves, but Android won't read the manifest.
+- Both pages use `wakeLock` to stop the screen sleeping mid-session. Safari
+  only grants it over https.
