@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Heel Raise Metronome</title>
+<meta name="theme-color" content="#0B1F3A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Heel Raise">
+<link rel="manifest" href="heelraise.webmanifest">
+<link rel="apple-touch-icon" href="icons/heelraise-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/heelraise-192.png">
+<style>
+:root{
+  --navy:#0B1F3A; --navy2:#16305a; --navy3:#22406f;
+  --yellow:#FFC72C; --f1:#FFC72C; --f2:#FFE69A;
+  --red:#E5484D; --amber:#F5A524;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--navy);color:#fff;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;
+  overscroll-behavior:none;-webkit-user-select:none;user-select:none;
+  -webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;touch-action:manipulation}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+button:disabled{opacity:.35;cursor:default}
+
+/* top bar */
+.top{display:flex;align-items:center;gap:10px;padding:8px 12px 6px}
+.icon-btn{width:44px;height:44px;border-radius:12px;background:var(--navy2);display:grid;place-items:center;
+  font-size:22px;color:#fff;text-decoration:none;flex:none}
+.icon-btn svg{width:22px;height:22px}
+.seg{display:flex;background:var(--navy2);border-radius:12px;padding:3px;gap:3px}
+.seg button{padding:9px 14px;border-radius:9px;font-weight:700;font-size:15px;color:#b9c6dc}
+.seg button.on{background:var(--yellow);color:var(--navy)}
+.top .seg{flex:1}
+.top .seg button{flex:1}
+.clock{font-variant-numeric:tabular-nums;font-weight:700;font-size:17px;min-width:52px;text-align:center;color:#d6e0f0}
+
+.info{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px 8px;font-size:14px;color:#b9c6dc;min-height:30px}
+.info b{color:#fff}
+#results{display:flex;align-items:center;gap:8px}
+#clearRes{font-size:13px;padding:4px 9px;border-radius:8px;background:var(--navy2);color:#b9c6dc}
+
+/* stage */
+.stage{position:relative;flex:1;overflow:hidden;margin:0 10px;border-radius:22px;background:var(--navy2)}
+.fill{position:absolute;inset:0;transform-origin:50% 100%;transform:scaleY(0);
+  background:linear-gradient(to top,var(--f1) 0%,var(--f1) 55%,var(--f2) 100%);will-change:transform}
+.half{position:absolute;left:0;right:0;height:50%;display:flex;justify-content:center}
+.top-half{top:0;align-items:flex-start;padding-top:5%}
+.bot-half{bottom:0;align-items:flex-end;padding-bottom:5%}
+.lbl{font-weight:900;font-size:min(21vw,11vh);letter-spacing:.04em;line-height:1;color:#fff;
+  mix-blend-mode:difference;opacity:.22;transition:opacity .1s,transform .1s}
+.lbl.on{opacity:1;transform:scale(1.07)}
+.mid{position:absolute;top:50%;left:0;right:0;border-top:3px dashed rgba(255,255,255,.4);mix-blend-mode:difference}
+.badge{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:var(--navy);border:5px solid var(--yellow);border-radius:30px;
+  padding:4px 26px 12px;min-width:min(62vw,36vh);text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.count{font-size:min(36vw,21vh);font-weight:900;line-height:1.02;font-variant-numeric:tabular-nums;color:var(--yellow)}
+.badge.cd .count{color:#fff}
+.sub{font-size:15px;font-weight:800;letter-spacing:.12em;color:#b9c6dc;text-transform:uppercase}
+.sub .flt{color:var(--amber)}
+.badge.pulse{animation:pulse .28s ease-out}
+@keyframes pulse{0%{transform:translate(-50%,-50%) scale(1.12)}100%{transform:translate(-50%,-50%) scale(1)}}
+.stage.flash::after{content:"";position:absolute;inset:0;border:8px solid var(--red);border-radius:22px;animation:fl .45s ease-out forwards;pointer-events:none}
+@keyframes fl{to{opacity:0}}
+
+/* controls */
+.controls{display:grid;gap:10px;padding:10px 10px 12px}
+#ctlIdle{grid-template-columns:1fr}
+#ctlRun{grid-template-columns:1fr 1.3fr 1fr}
+.btn{min-height:66px;border-radius:18px;background:var(--navy2);font-weight:800;font-size:19px}
+.btn.primary{background:var(--yellow);color:var(--navy);font-size:24px}
+.btn.warn{background:var(--amber);color:#2b1a00}
+.btn.danger{background:var(--red)}
+.btn.ghost{background:transparent;border:2px solid var(--navy3);min-height:54px}
+.btn small{display:block;font-size:12px;font-weight:600;opacity:.75}
+
+/* sheets */
+.sheet{position:fixed;inset:0;background:rgba(3,10,22,.6);display:flex;align-items:flex-end;z-index:10}
+.panel{width:100%;max-height:88%;overflow:auto;background:var(--navy);border-radius:24px 24px 0 0;
+  padding:18px 16px calc(18px + env(safe-area-inset-bottom));border-top:1px solid var(--navy3)}
+.panel h2{margin:0 0 12px;font-size:20px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--navy2)}
+.row label{font-weight:700;font-size:15px}
+.row label small{display:block;font-weight:500;color:#8fa0bd;font-size:12px}
+.row .seg button{padding:8px 11px;font-size:14px}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:42px;height:40px;border-radius:10px;background:var(--navy2);font-size:22px;font-weight:700}
+.step output{min-width:58px;text-align:center;font-weight:800;font-variant-numeric:tabular-nums}
+.note{font-size:12.5px;color:#8fa0bd;line-height:1.45;margin:12px 0 4px}
+.sumReps{text-align:center;margin:4px 0}
+.sumReps span{font-size:96px;font-weight:900;color:var(--yellow);line-height:1}
+.sumReps small{display:block;font-size:14px;letter-spacing:.14em;font-weight:800;color:#b9c6dc;text-transform:uppercase}
+#sumMeta{text-align:center;color:#b9c6dc;margin:8px 0 16px;line-height:1.5}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.row2 .btn.sel{background:var(--yellow);color:var(--navy)}
+.done{width:100%;margin-top:14px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <a class="icon-btn" href="index.html" aria-label="Home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <div class="seg" id="sideSeg"><button data-v="L" class="on">Left</button><button data-v="R">Right</button></div>
+    <div class="clock" id="clock">0:00</div>
+    <button class="icon-btn" id="setBtn" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+
+  <div class="info">
+    <div id="results"></div>
+    <div id="tempo"></div>
+  </div>
+
+  <main class="stage" id="stage">
+    <div class="fill" id="fill"></div>
+    <div class="half top-half"><span class="lbl" id="lblUp">UP</span></div>
+    <div class="half bot-half"><span class="lbl" id="lblDown">DOWN</span></div>
+    <div class="mid"></div>
+    <div class="badge" id="badge"><div class="count" id="count">0</div><div class="sub" id="sub">Left · reps</div></div>
+  </main>
+
+  <footer class="controls" id="ctlIdle">
+    <button class="btn primary" id="startBtn">Start test</button>
+  </footer>
+  <footer class="controls" id="ctlRun" hidden>
+    <button class="btn" id="undoBtn">Undo<small>last fault</small></button>
+    <button class="btn warn" id="faultBtn">Fault ✕<small>don't count rep</small></button>
+    <button class="btn danger" id="stopBtn">Stop</button>
+  </footer>
+</div>
+
+<!-- Settings -->
+<div class="sheet" id="setSheet" hidden>
+  <div class="panel">
+    <h2>Settings</h2>
+    <div id="setRows"></div>
+    <p class="note">Default tempo is 1 s up and 1 s down (30 reps/min). The rep is counted at the top of each raise. Faults remove the rep in progress, or the one that just topped, from the count. Auto-stop ends the test after that many faulted reps in a row.</p>
+    <p class="note">If you hear no sound on iPhone, check the silent switch is off.</p>
+    <button class="btn ghost done" id="resetSet">Reset to defaults</button>
+    <button class="btn primary done" id="closeSet">Done</button>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="sheet" id="sumSheet" hidden>
+  <div class="panel">
+    <h2 id="sumTitle">Test complete</h2>
+    <div class="sumReps"><span id="sumReps">0</span><small>reps</small></div>
+    <p id="sumMeta"></p>
+    <div class="row2">
+      <button class="btn" id="saveL">Save as Left</button>
+      <button class="btn" id="saveR">Save as Right</button>
+    </div>
+    <button class="btn ghost done" id="discard">Discard</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const KEY = 'pt-heelraise-settings';
+  const DEF = {up:1, down:1, hold:0, countdown:3, sound:'beep', voice:'off', autoStop:0, colour:'yellow'};
+  let S = Object.assign({}, DEF);
+  try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) S = Object.assign(S, s); } catch (e) {}
+  const saveS = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+  const COLOURS = {yellow:['#FFC72C','#FFE69A'], blue:['#2F80ED','#9CCBFF'], green:['#00A651','#86E3AE'], red:['#E53935','#FFA197']};
+  const SIDE = {L:'Left', R:'Right'};
+
+  let side = 'L';
+  const results = {L:null, R:null};
+  let ctx = null, runGain = null, running = false, start = 0, schedUntil = 0;
+  let T = null, faults = [], lastCount = 0, lastPhase = '', timer = null, wake = null, pending = null;
+
+  /* ---------- audio ---------- */
+  function ensureAudio() {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state !== 'running') ctx.resume();
+    const b = ctx.createBuffer(1, 1, 22050), s = ctx.createBufferSource();
+    s.buffer = b; s.connect(ctx.destination); s.start(0);
+  }
+  function tone(t, f, d, type, g, dest) {
+    const o = ctx.createOscillator(), gn = ctx.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
+    gn.gain.setValueAtTime(0.0001, t);
+    gn.gain.exponentialRampToValueAtTime(g || 0.5, t + 0.005);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(gn); gn.connect(dest || runGain || ctx.destination);
+    o.start(t); o.stop(t + d + 0.03);
+  }
+  const SOUNDS = {
+    beep: {
+      cd:       t => tone(t, 660, .10, 'sine', .5),
+      up:       t => tone(t, 880, .10, 'sine', .45),
+      top:      t => tone(t, 1320, .15, 'sine', .6),
+      down:     t => tone(t, 990, .06, 'sine', .3),
+      faultTop: t => tone(t, 200, .22, 'sawtooth', .22)
+    },
+    click: {
+      cd:       t => tone(t, 1000, .03, 'square', .22),
+      up:       t => tone(t, 1400, .025, 'square', .22),
+      top:      t => tone(t, 2400, .035, 'square', .28),
+      down:     t => tone(t, 1800, .02, 'square', .14),
+      faultTop: t => tone(t, 300, .09, 'square', .22)
+    }
+  };
+  function playEvent(kind, t) { const set = SOUNDS[S.sound]; if (set && set[kind]) set[kind](t); }
+
+  /* ---------- speech ---------- */
+  function say(txt, vol) {
+    if (!('speechSynthesis' in window)) return;
+    try {
+      speechSynthesis.resume();
+      const u = new SpeechSynthesisUtterance(txt);
+      u.rate = 1.15; u.lang = 'en-AU'; if (vol !== undefined) u.volume = vol;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  /* ---------- wake lock ---------- */
+  async function lockWake() { try { if ('wakeLock' in navigator) wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
+  function releaseWake() { try { wake && wake.release(); } catch (e) {} wake = null; }
+
+  /* ---------- timing ---------- */
+  const isFaulted = r => faults.includes(r);
+  function countAt(t) {
+    const topped = t >= T.up ? Math.floor((t - T.up) / T.P) + 1 : 0;
+    return topped - faults.filter(r => r <= topped).length;
+  }
+  function schedule() {
+    if (!running) return;
+    const horizon = ctx.currentTime + 0.15;
+    for (let n = T.cd; n >= 1; n--) { const et = start - n; if (et > schedUntil && et <= horizon) playEvent('cd', et); }
+    const from = Math.max(0, Math.floor((schedUntil - start) / T.P) - 1);
+    for (let k = from; ; k++) {
+      const base = start + k * T.P;
+      if (base > horizon) break;
+      const ev = [[base, 'up', k + 1], [base + T.up, 'top', k + 1]];
+      if (T.hold > 0) ev.push([base + T.up + T.hold, 'down', k + 1]);
+      for (const [et, kind, rep] of ev) {
+        if (et > schedUntil && et <= horizon) playEvent(kind === 'top' && isFaulted(rep) ? 'faultTop' : kind, et);
+      }
+    }
+    schedUntil = horizon;
+  }
+
+  function fmtClock(s) { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+  function setSub() {
+    if (running && faults.length) $('sub').innerHTML = SIDE[side] + ' · <span class="flt">' + faults.length + ' fault' + (faults.length > 1 ? 's' : '') + '</span>';
+    else $('sub').textContent = SIDE[side] + ' · reps';
+  }
+  function pulse() { const b = $('badge'); b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse'); }
+
+  function frame() {
+    if (!running) return;
+    schedule();
+    const t = ctx.currentTime - start;
+    let level = 0, phase = 'ready';
+    const badge = $('badge');
+    if (t < 0) {
+      if (T.cd > 0) { $('count').textContent = Math.max(1, Math.ceil(-t)); badge.classList.add('cd'); }
+      $('clock').textContent = '0:00';
+    } else {
+      badge.classList.remove('cd');
+      const c = Math.floor(t / T.P), l = t - c * T.P;
+      if (l < T.up) { phase = 'up'; level = l / T.up; }
+      else if (l < T.up + T.hold) { phase = 'top'; level = 1; }
+      else { phase = 'down'; level = 1 - (l - T.up - T.hold) / T.down; }
+      const n = countAt(t);
+      if (n !== lastCount || $('count').textContent !== String(n)) {
+        if (n > lastCount) { pulse(); if (S.voice === 'count') say(String(n)); }
+        lastCount = n; $('count').textContent = n;
+      }
+      if (phase !== lastPhase && S.voice === 'updown') {
+        if (phase === 'up') say('up'); else if (phase === 'down') say('down');
+      }
+      $('clock').textContent = fmtClock(t);
+    }
+    lastPhase = phase;
+    $('fill').style.transform = 'scaleY(' + Math.max(0, Math.min(1, level)).toFixed(4) + ')';
+    $('lblUp').classList.toggle('on', phase === 'up' || phase === 'top');
+    $('lblDown').classList.toggle('on', phase === 'down');
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- test flow ---------- */
+  function startTest() {
+    if (running) return;
+    ensureAudio();                                  // must stay synchronous inside the tap
+    if (S.voice !== 'off') say(' ', 0);
+    lockWake();
+    T = {up:S.up, hold:S.hold, down:S.down, cd:S.countdown};
+    T.P = T.up + T.hold + T.down;
+    runGain = ctx.createGain(); runGain.connect(ctx.destination);
+    faults = []; lastCount = 0; lastPhase = '';
+    schedUntil = ctx.currentTime - 0.001;
+    start = ctx.currentTime + 0.15 + T.cd;
+    running = true;
+    $('count').textContent = T.cd > 0 ? T.cd : 0;
+    setSub();
+    $('ctlIdle').hidden = true; $('ctlRun').hidden = false;
+    setLocked(true);
+    timer = setInterval(schedule, 25);
+    requestAnimationFrame(frame);
+  }
+
+  function stopTest(reason) {
+    if (!running) return;
+    running = false; clearInterval(timer);
+    const t = ctx.currentTime - start;
+    try { runGain.gain.setValueAtTime(0, ctx.currentTime); runGain.disconnect(); } catch (e) {}
+    runGain = null;
+    releaseWake();
+    resetVisual();
+    $('ctlIdle').hidden = false; $('ctlRun').hidden = true;
+    setLocked(false);
+    if (t < 0) { $('count').textContent = 0; $('badge').classList.remove('cd'); setSub(); return; }  // stopped in countdown
+    const reps = countAt(t);
+    $('count').textContent = reps;
+    if (S.sound !== 'off') {
+      const n = ctx.currentTime;
+      tone(n + .02, 660, .15, 'sine', .5, ctx.destination);
+      tone(n + .22, 440, .35, 'sine', .5, ctx.destination);
+    }
+    if (S.voice !== 'off') say(reps + (reps === 1 ? ' rep' : ' reps'));
+    pending = {reps, faults: faults.length, dur: t, tempo: tempoText(T)};
+    showSummary(reason);
+  }
+
+  function addFault() {
+    if (!running) return;
+    const t = ctx.currentTime - start;
+    if (t < 0) return;
+    const rep = Math.floor(t / T.P) + 1;           // the rep currently in progress
+    if (isFaulted(rep)) return;
+    faults.push(rep);
+    const st = $('stage'); st.classList.remove('flash'); void st.offsetWidth; st.classList.add('flash');
+    setSub();
+    let run = 0; while (isFaulted(rep - run)) run++;
+    if (S.autoStop && run >= S.autoStop) stopTest('Auto-stopped after ' + run + ' faulted reps in a row');
+  }
+  function undoFault() { if (!running || !faults.length) return; faults.pop(); setSub(); }
+
+  function resetVisual() {
+    $('fill').style.transform = 'scaleY(0)';
+    $('lblUp').classList.remove('on'); $('lblDown').classList.remove('on');
+  }
+  function setLocked(on) {
+    $('setBtn').disabled = on;
+    document.querySelectorAll('#sideSeg button').forEach(b => b.disabled = on);
+  }
+
+  /* ---------- summary & results ---------- */
+  function showSummary(reason) {
+    $('sumTitle').textContent = SIDE[side] + ' leg — test complete';
+    $('sumReps').textContent = pending.reps;
+    const f = pending.faults;
+    $('sumMeta').innerHTML = pending.dur.toFixed(1) + ' s · ' + f + ' fault' + (f === 1 ? '' : 's') + '<br>' + pending.tempo +
+      (reason ? '<br><b>' + reason + '</b>' : '');
+    $('saveL').classList.toggle('sel', side === 'L');
+    $('saveR').classList.toggle('sel', side === 'R');
+    $('sumSheet').hidden = false;
+  }
+  function saveResult(s) {
+    results[s] = pending; pending = null;
+    $('sumSheet').hidden = true;
+    renderResults();
+    const other = s === 'L' ? 'R' : 'L';
+    setSide(results[other] ? s : other);
+    $('count').textContent = 0;
+  }
+  function renderResults() {
+    const r = $('results'), L = results.L, R = results.R;
+    if (!L && !R) { r.innerHTML = '<span>No results yet</span>'; return; }
+    let h = '<span>L <b>' + (L ? L.reps : '–') + '</b> · R <b>' + (R ? R.reps : '–') + '</b></span>';
+    if (L && R) {
+      const mx = Math.max(L.reps, R.reps), mn = Math.min(L.reps, R.reps);
+      h += '<span>Sym <b>' + (mx ? Math.round(mn / mx * 100) : 100) + '%</b></span>';
+    }
+    h += '<button id="clearRes">Clear</button>';
+    r.innerHTML = h;
+    $('clearRes').onclick = () => { if (confirm('Clear both results?')) { results.L = results.R = null; renderResults(); } };
+  }
+  function tempoText(t) {
+    const P = t.up + t.hold + t.down;
+    return t.up + ' s up' + (t.hold ? ' · ' + t.hold + ' s hold' : '') + ' · ' + t.down + ' s down · ' + Math.round(60 / P) + '/min';
+  }
+  function renderTempo() { $('tempo').textContent = tempoText(S); }
+
+  function setSide(v) {
+    side = v;
+    document.querySelectorAll('#sideSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+    setSub();
+  }
+
+  /* ---------- settings ---------- */
+  const ROWS = [
+    {k:'up',   label:'Up time',   type:'step', min:.5, max:3, step:.25},
+    {k:'hold', label:'Top hold',  type:'step', min:0,  max:2, step:.25, hint:'Pause at the top'},
+    {k:'down', label:'Down time', type:'step', min:.5, max:3, step:.25},
+    {k:'countdown', label:'Countdown', type:'seg', opts:[[0,'None'],[3,'3 s'],[5,'5 s']]},
+    {k:'sound', label:'Sound', type:'seg', opts:[['beep','Beep'],['click','Click'],['off','Off']]},
+    {k:'voice', label:'Voice', type:'seg', opts:[['off','Off'],['count','Count'],['updown','Up/Down']], hint:'Count speaks each rep'},
+    {k:'autoStop', label:'Auto-stop', type:'seg', opts:[[0,'Off'],[2,'2 faults'],[3,'3 faults']], hint:'Faulted reps in a row'},
+    {k:'colour', label:'Fill colour', type:'seg', opts:[['yellow','Yellow'],['blue','Blue'],['green','Green'],['red','Red']]}
+  ];
+  function buildSettings() {
+    const wrap = $('setRows'); wrap.innerHTML = '';
+    ROWS.forEach(r => {
+      const row = document.createElement('div'); row.className = 'row';
+      row.innerHTML = '<label>' + r.label + (r.hint ? '<small>' + r.hint + '</small>' : '') + '</label>';
+      if (r.type === 'step') {
+        const st = document.createElement('div'); st.className = 'step';
+        const minus = document.createElement('button'), out = document.createElement('output'), plus = document.createElement('button');
+        minus.textContent = '−'; plus.textContent = '+';
+        const upd = () => { out.textContent = S[r.k] + ' s'; minus.disabled = S[r.k] <= r.min; plus.disabled = S[r.k] >= r.max; };
+        minus.onclick = () => { S[r.k] = Math.max(r.min, +(S[r.k] - r.step).toFixed(2)); upd(); changed(); };
+        plus.onclick  = () => { S[r.k] = Math.min(r.max, +(S[r.k] + r.step).toFixed(2)); upd(); changed(); };
+        st.append(minus, out, plus); row.append(st); upd();
+      } else {
+        const sg = document.createElement('div'); sg.className = 'seg';
+        r.opts.forEach(([v, l]) => {
+          const b = document.createElement('button'); b.textContent = l;
+          b.classList.toggle('on', S[r.k] === v);
+          b.onclick = () => { S[r.k] = v; sg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); changed(); };
+          sg.append(b);
+        });
+        row.append(sg);
+      }
+      wrap.append(row);
+    });
+  }
+  function applyColour() {
+    const c = COLOURS[S.colour] || COLOURS.yellow;
+    document.documentElement.style.setProperty('--f1', c[0]);
+    document.documentElement.style.setProperty('--f2', c[1]);
+  }
+  function changed() { saveS(); applyColour(); renderTempo(); }
+
+  /* ---------- wiring ---------- */
+  $('startBtn').onclick = startTest;
+  $('stopBtn').onclick = () => stopTest('');
+  $('faultBtn').onclick = addFault;
+  $('undoBtn').onclick = undoFault;
+  $('saveL').onclick = () => saveResult('L');
+  $('saveR').onclick = () => saveResult('R');
+  $('discard').onclick = () => { pending = null; $('sumSheet').hidden = true; $('count').textContent = 0; };
+  document.querySelectorAll('#sideSeg button').forEach(b => b.onclick = () => setSide(b.dataset.v));
+  $('setBtn').onclick = () => { buildSettings(); $('setSheet').hidden = false; };
+  $('closeSet').onclick = () => { $('setSheet').hidden = true; };
+  $('setSheet').onclick = e => { if (e.target.id === 'setSheet') $('setSheet').hidden = true; };
+  $('resetSet').onclick = () => { S = Object.assign({}, DEF); changed(); buildSettings(); };
+
+  document.addEventListener('keydown', e => {
+    if (!$('sumSheet').hidden || !$('setSheet').hidden) return;
+    if (e.code === 'Space') { e.preventDefault(); running ? stopTest('') : startTest(); }
+    else if (e.key === 'f' || e.key === 'F') addFault();
+    else if (e.key === 'u' || e.key === 'U') undoFault();
+    else if (!running && (e.key === 'l' || e.key === 'L')) setSide('L');
+    else if (!running && (e.key === 'r' || e.key === 'R')) setSide('R');
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && running) stopTest('Stopped: app left the screen');
+  });
+
+  applyColour(); renderTempo(); renderResults(); setSide('L');
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
